@@ -1,25 +1,25 @@
 ---
 name: create-github-project-issue
 description: >-
-  Creates an issue on a GitHub project using the GitHub CLI. Use when the user
-  asks to create, open, or file a GitHub issue on a project board, or
-  reports a bug, defect, problem, enhancement, story, or task related to a project.
+  Creates an issue on a GitHub project or repository using the GitHub CLI. Use when the user
+  asks to create, open, or file a GitHub issue on a project board / repository, or
+  reports a bug, defect, problem, enhancement, story, or task related to a project or repository.
 ---
 
 # Create GitHub Project Issue
 
 ## Overview
-- Uses GitHub CLI (`gh`) to create an issue on a GitHub project board.
+- Uses GitHub CLI (`gh`) to create an issue on a GitHub project board or repository.
 - Two issue types: **Bug** and **Enhancement**.
-- Requires user approval before executing `gh project item-create`.
+- Requires user approval before executing `gh project item-create` or `gh issue create`.
 
 ## When to Use
-- Use this skill when the user requests to create a new issue on a GitHub project board, or reports a bug, defect, problem, enhancement, story, or task related to a project.
-- Do not use for editing, closing, or deleting existing project items, adding comments, managing assignees/reviewers/milestones, creating pull requests, or non-GitHub project boards.
+- Use this skill when the user requests to create a new issue on a GitHub project board / repository, or reports a bug, defect, problem, enhancement, story, or task related to a project or repository.
+- Do not use for editing, closing, or deleting existing project items, adding comments, managing assignees/reviewers/milestones, creating pull requests, or non-GitHub project boards or repositories.
 
 ## Instructions
 1. **Classify** - Bug or Enhancement
-1. **Resolve** - Determine Project Board (See `Notes -> Project Resolution` section)
+1. **Resolve** - Determine Project Board or Repository (See `Instructions -> Resolve` section).
 1. **Preflight** - Run preflight checks; on failure, explain and wait for further instructions.
 1. **Gather** - Collect required fields; stop and wait until complete.
 1. **Draft** - Show draft of issue to be created, including all gathered fields and labels; ask for confirmation to proceed (see `Output Format -> Draft` section).
@@ -37,14 +37,20 @@ Unless otherwise determined by the prompt, classify the issue as either a **Bug*
 Determine the GitHub project board for which to create the issue.
 
 - If the user specifies a project, use that.
-- Else if the user only has one project, use that.
-- Else ask the user to choose from their projects.
+- Else if the project can be determined from repository files, use that.
+- Else if the project can be determined from agent context files, use that.
+- Else if the directory is a GitHub repository, use that.
+- Else ask the user to specify a repository or project.
+  - If a repository is specified, use that.
+  - Else if a project is specified, use that.
+  - Else if the user needs help, offer guidance.
 
 ### Preflight
 Run after project resolution is complete. Always run again immediately before any `gh` command if time has passed or context changed.
 
 - **Auth** `gh auth status`; on failure, show error, suggest `gh auth login`, stop and wait.
-- **Project Access** `gh project view PROJECT_NUMBER --owner @me`; on failure, show error, confirm project and permissions, stop and wait.
+- **Project Access** if adding an issue to a project: `gh project view PROJECT_NUMBER --owner @me`; on failure, show error, confirm project and permissions, stop and wait.
+- **Repository Access** if adding to a repository: `gh repo view OWNER/REPO`; on failure, show error, confirm repository and permissions, stop and wait.
 
 ### Gather
 Depending on the type of issue being created, gather the following information from the user.
@@ -108,14 +114,16 @@ Present the following in a single message to the user, asking for confirmation t
 ```
 
 As the user to approve, request edits, or cancel.
-| User Response | User Might Say                        | Action                                             |
-|---------------|---------------------------------------|----------------------------------------------------|
-| Approve       | "Looks good", "Create it", "Approved" | Run `gh project item-create`                       |
-| Request Edits | "Please change X", "Add more to Y"    | Update draft, present again, **stop** for approval |
-| Cancel        | "Cancel", "Never mind", "Stop"        | Do not create issue, end flow; do not run `gh`     |
+| User Response | User Might Say                        | Action                                                           |
+|---------------|---------------------------------------|------------------------------------------------------------------|
+| Approve       | "Looks good", "Create it", "Approved" | Run `gh project item-create` or `gh issue create` as appropriate |
+| Request Edits | "Please change X", "Add more to Y"    | Update draft, present again, **stop** for approval               |
+| Cancel        | "Cancel", "Never mind", "Stop"        | Do not create issue, end flow; do not run `gh`                   |
 
 ### Create
-The agent will use the GitHub CLI to create the issue on the resolved project board.
+Use the GitHub CLI to create the issue on the resolved project board or repository as requested by the user prompt.
+
+#### For Project Board
 ```bash
 gh project item-create PROJECT_NUMBER \
   --owner @me \
@@ -125,6 +133,17 @@ gh project item-create PROJECT_NUMBER \
   --body "full markdown body" 
 ```
 
+#### For Repository
+```bash
+gh issue create \
+  --repo OWNER/REPO \
+  --title "Issue Title" \
+  --label "type: bug" | "type: enhancement" \
+  --label "additional label" \ # if needed
+  --body "full markdown body"
+```
+
+#### For Both
 - Always include the label "type: bug" or "type: enhancement" based on issue type.
 - Capture stdout and std error for outcome reporting.
 
